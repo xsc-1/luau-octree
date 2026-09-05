@@ -22,18 +22,21 @@ local function insertRandom(key)
     p.CanCollide = false
     p.CastShadow = false
     p.Color = Color3.new(0, 1, 0)
+    p.Name = key
 
     allParts[key] = p
 end
 
-for i=1 ,1000 do
+for i=1 ,10 do
     insertRandom("sa"..i)
 end
 
 
 local player = Players.PlayerAdded:Wait()
 local char = player.Character or player.CharacterAdded:Wait()
-RunService.Heartbeat:Connect(function(deltaTime)
+
+print(myoct.nodeMap)
+--[[RunService.Heartbeat:Connect(function(deltaTime)
     for i,v in allParts do
         v.BrickColor = BrickColor.Green()
     end
@@ -44,4 +47,4 @@ RunService.Heartbeat:Connect(function(deltaTime)
     for i,v in tab do
         allParts[v].BrickColor = BrickColor.Red()
     end
-end)
+end)]]

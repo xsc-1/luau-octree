@@ -1,5 +1,16 @@
 --!strict
-local DEFAULT_CAPACITY = 4
+
+local function assertVector3(vec3:Vector3, name:string)
+    assert(typeof(vec3) == "Vector3",name.." agrument must be a valid Vector3 instance")
+end
+local function assertNumber(n:number, name:string)
+    assert(typeof(n)=="number", name.." argument must be a valid number")
+end
+
+
+local config = require(script.config)
+local DEFAULT_CAPACITY = config.Module.DEFAULT_CAPACITY
+local EPSILON = config.Module.EPSILON
 
 local directions = {
 	[1] = {-1, 1, 1},
@@ -34,19 +45,17 @@ local directionMap = {
 		}
 	},
 }
-local function isClose(m:Vector3, n:Vector3, epsilon) : boolean
-    return (m - n).Magnitude < epsilon
-end
 
 local function isInBounds(center:Vector3, pos:Vector3, nSize:number) : boolean
     local distX = pos.X - center.X
 	local distY = pos.Y - center.Y
 	local distZ = pos.Z - center.Z
-	
+	local halfSize = (nSize/2) + EPSILON
+
 	return not(
-    math.abs(distX) > nSize/2
-	or math.abs(distY) > nSize/2
-	or math.abs(distZ) > nSize/2
+    math.abs(distX) > halfSize
+	or math.abs(distY) > halfSize
+	or math.abs(distZ) > halfSize
     )
 end
 
@@ -69,11 +78,15 @@ local function debugVis(pos, size)
 	p.CanCollide = false
 	p.CastShadow = false
 	p.CanQuery = false
+    p.AudioCanCollide = false
+    p.CanTouch = false
 	p.Transparency = 0.9
-	--p.Color = Color3.new(1, 0, 0)
     p.BrickColor = BrickColor.random()
+    if config.Debug.DEBUG_ON then
+        return p
+    end
+    return nil
 end
-
 
 
 local Octree = {}
@@ -87,12 +100,20 @@ export type OctreeInstance = typeof(setmetatable({}::{
     objects:{[any]:Vector3},
     objectCount:number,
 	children:{[number]:OctreeInstance},
+    nodeMap:{[any]:OctreeInstance},
     parent:OctreeInstance,
+    dir:number,
+    descendantCount:number,
 
-    bodyDiagonal:number
+    bodyDiagonal:number,
+
+    debugVisual:Part
 },Octree))
 
-function Octree.new(pos:Vector3, size:number, parent:OctreeInstance) : OctreeInstance
+function Octree.new(pos:Vector3, size:number, parent:OctreeInstance?, dir:number?) : OctreeInstance
+    assertVector3(pos, "pos")
+    assertNumber(size, "size")
+
 	local self = setmetatable({}, Octree)
 	self.Pos = pos
 	self.Size = Vector3.new(size,size,size)
@@ -100,13 +121,21 @@ function Octree.new(pos:Vector3, size:number, parent:OctreeInstance) : OctreeIns
     self.capacity = DEFAULT_CAPACITY
     self.objectCount = 0
     self.objects = {}
+    self.descendantCount = 0
 	self.children = {}
 	self.parent = parent
+    self.dir = dir
+
+    if not parent then
+        self.nodeMap = {}
+    else
+        self.nodeMap = parent.nodeMap
+    end
 
     --pre computation
     self.bodyDiagonal = (Vector3.new(size, size, size)).Magnitude/2
 	
-	debugVis(self.Pos, self.Size)
+	self.debugVisual = debugVis(self.Pos, self.Size)
 	
 	return self
 end
@@ -116,12 +145,15 @@ function Octree.divide(self:OctreeInstance)
 		local xdir = directions[i][1]
 		local ydir = directions[i][2]
 		local zdir = directions[i][3]
-		local child = Octree.new(self.Pos + Vector3.new(xdir*self.nSize/4, ydir*self.nSize/4, zdir*self.nSize/4), self.nSize/2, self)
+		local child = Octree.new(self.Pos + Vector3.new(xdir*self.nSize/4, ydir*self.nSize/4, zdir*self.nSize/4), self.nSize/2, self, i)
 		self.children[i] = child
 	end
 end
 
 function Octree._query(self:OctreeInstance, pos:Vector3, accumulatedDivisions:number)
+    assertVector3(pos, "pos")
+    assertNumber(accumulatedDivisions, "accumulatedDivisions")
+
 	if not isInBounds(self.Pos, pos, self.nSize) then return end
 	
 	if #self.children == 0 then
@@ -136,13 +168,16 @@ function Octree._query(self:OctreeInstance, pos:Vector3, accumulatedDivisions:nu
 	self.children[dir]:query(pos, accumulatedDivisions)
 end
 
-function Octree.insert(self:OctreeInstance, object:any, pos:Vector3)
-    if not isInBounds(self.Pos, pos, self.nSize) then return end
+function Octree.insert<T>(self:OctreeInstance, object:T, pos:Vector3) : boolean
+    assertVector3(pos, "pos")
 
+    if not isInBounds(self.Pos, pos, self.nSize) then return false end
+
+    self.descendantCount += 1
     if #self.children > 0 then
         local dir = getDirection(self.Pos, pos)
         self.children[dir]:insert(object, pos)
-        return
+        return true
     end
 
     if self.objectCount == self.capacity then
@@ -158,10 +193,16 @@ function Octree.insert(self:OctreeInstance, object:any, pos:Vector3)
     else
         self.objects[object] = pos
         self.objectCount += 1
+        self.nodeMap[object] = self
     end
+
+    return true
 end
 
 function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, targetTable:{any}) : {any}
+    assertVector3(pos, "pos")
+    assertNumber(radius, "radius")
+
     local dist = (self.Pos - pos).Magnitude
     if dist > self.bodyDiagonal + radius then return end
 
@@ -177,7 +218,11 @@ function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, tar
     end
 end
 
-function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any})
+function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any}) : {any}
+    assertNumber(typeof(targetTable)=="table","target table must be a table")
+    assertVector3(size, "size")
+    assertVector3(pos, "pos")
+
     local distX = math.abs(self.Pos.X - pos.X)
     local distY = math.abs(self.Pos.Y - pos.Y)
     local distZ = math.abs(self.Pos.Z - pos.Z)
@@ -201,6 +246,59 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
     end
 
     return targetTable
+end
+
+function Octree.Remove<A>(self:OctreeInstance, object:A)
+    local node = self.nodeMap[object]
+    if node then
+        node.objects[object] = nil
+        node.objectCount -= 1
+        node.descendantCount -= 1
+        self.nodeMap[object] = nil
+
+        local current = node.parent
+        while current do
+            current.descendantCount -= 1
+            
+            if current.descendantCount == 0 and node.parent.objectCount == 0 and #current.children > 0 then
+                current:DestroyChildren()
+            end
+
+            current = current.parent
+        end
+    end
+end
+
+function Octree.Update<A>(self:OctreeInstance, object:A, newPos:Vector3)
+    assertVector3(newPos, "newPos")
+    self:Remove(object)
+    local success = self:insert(object, newPos)
+    if not success then
+        warn("position of the object located at ("..tostring(newPos)..") couldnt updated, its out of bounds")
+    end
+end
+
+function Octree.DestroyChildren(self:OctreeInstance)
+    if #self.children > 0 then
+        for i,child in self.children do
+            child:Destroy()
+        end
+        table.clear(self.children)
+    end
+end
+
+function Octree.Destroy(self:OctreeInstance)
+    self:DestroyChildren()
+
+    if self.parent == nil then
+        table.clear(self.nodeMap)
+    end
+    if self.debugVisual then
+        self.debugVisual:Destroy()
+    end
+    table.clear(self.objects)
+    table.clear(self)
+    setmetatable(self, nil)
 end
 
 return Octree
