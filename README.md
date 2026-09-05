@@ -24,17 +24,18 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 
+local turretsInRange = {}--our external table
 RunService.RenderStepped:Connect(function(dt)
     local hrpPos = hrp.Position
 
     --getting turrets in range
-    local turretsInRange = {} -- our external table
     myOctree:GetInRadius(hrpPos, 15, turretsInRange)
 
     --making turrets look at player
     for _,turret in turretsInRange do
         turret:PivotTo(CFrame.lookAt(turret:GetPivot().Position, hrpPos))
     end
+    table.clear(turretsInRange)
 end)
 
 --turrets will constantly look at player and you can have thousands of turrets without any fps drop
