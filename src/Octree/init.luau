@@ -248,6 +248,32 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
     return targetTable
 end
 
+function Octree.GetNearest<T>(self:OctreeInstance, pos:Vector3, bestObj:T, bestDist:number)
+    bestDist = bestDist or math.huge
+
+    if (self.Pos-pos).Magnitude > bestDist + self.bodyDiagonal then
+        return bestObj, bestDist
+    end
+
+    if #self.children > 0 then
+        local bestDir = getDirection(self.Pos, pos)
+        for i=0, 7 do
+            local currentDir = ((i + bestDir-1)%8 )+ 1
+
+            bestObj, bestDist = self.children[currentDir]:GetNearest(pos, bestObj, bestDist)
+        end
+    else
+        for obj, objpos in self.objects do
+            local dist = (pos-objpos).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                bestObj = obj
+            end
+        end
+    end
+    return bestObj, bestDist
+end
+
 function Octree.Remove<A>(self:OctreeInstance, object:A)
     local node = self.nodeMap[object]
     if node then
