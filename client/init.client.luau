@@ -1,24 +1,27 @@
 local objectSize = Vector3.new(.5,.5,.5)
 local inactiveColor = BrickColor.Green()
 local activeColor = BrickColor.Red()
+local indicatorColor = BrickColor.Blue()
 local playerRadius = 10
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+
 local Octree = require(ReplicatedStorage.Shared.Octree)
 
-local myoct = Octree.new(Vector3.new(0, 50, 0), 100)
+local myOctree = Octree.new(Vector3.new(0, 50, 0), 100)
+local allParts = {} :: {[string]:Part}
 
 local function getRandomVector3(n)
     return Vector3.new(math.random(-n,n), math.random(-n,n), math.random(-n,n))
 end
 
-local allParts = {} :: {[string]:Part}
 local function insertRandom(key)
     local pos = getRandomVector3(30) + Vector3.new(20, 50, 20)
 
-    myoct:insert(key, pos)
+    myOctree:insert(key, pos)
 
     local p = Instance.new("Part", workspace)
     p.Position = pos
@@ -37,6 +40,8 @@ indicatorPart.Size = Vector3.new(2,2,2)
 indicatorPart.Anchored = true
 indicatorPart.CanCollide = false
 indicatorPart.CastShadow = false
+indicatorPart.BrickColor = indicatorColor
+
 
 for i=1 ,20000 do
     insertRandom("sa"..i)
@@ -49,12 +54,15 @@ local primary = char:WaitForChild("HumanoidRootPart")
 local t = {}
 local previous = {}
 RunService.Heartbeat:Connect(function(deltaTime)
+    local hrpPos = primary.Position
+
     for i,v in previous do
         v.BrickColor = inactiveColor
     end
     table.clear(previous)
 
-    myoct:GetInRadius(primary.Position, playerRadius, t)
+    myOctree:GetInRadius(hrpPos, playerRadius, t)
+    indicatorPart:PivotTo(allParts[myOctree:GetNearest(hrpPos)]:GetPivot())
     
     for i,v in t do
         previous[v] = allParts[v]

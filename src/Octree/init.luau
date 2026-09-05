@@ -46,6 +46,10 @@ local directionMap = {
 	},
 }
 
+--[=[
+    returns true if given position is in
+    bounds of the box with given center and size
+]=]
 local function isInBounds(center:Vector3, pos:Vector3, nSize:number) : boolean
     local distX = pos.X - center.X
 	local distY = pos.Y - center.Y
@@ -59,10 +63,10 @@ local function isInBounds(center:Vector3, pos:Vector3, nSize:number) : boolean
     )
 end
 
-local function sign(n:number) : number
-	if n >= 0 then return 1 else return -1 end
-end
-
+--[=[
+    returns the direction which
+    given position is in
+]=]
 local function getDirection(center:Vector3, pos:Vector3) : number
 	return directionMap
 	[(pos.X - center.X) >= 0 and 1 or -1]
@@ -70,6 +74,10 @@ local function getDirection(center:Vector3, pos:Vector3) : number
 	[(pos.Z - center.Z) >= 0 and 1 or -1]
 end
 
+--[=[
+    creates a visualizer block
+    at given position with given size
+]=]
 local function debugVis(pos, size)
 	local p = Instance.new("Part", workspace)
 	p.Anchored = true
@@ -110,6 +118,9 @@ export type OctreeInstance = typeof(setmetatable({}::{
     debugVisual:Part
 },Octree))
 
+--[=[
+    creates a new octree
+]=]
 function Octree.new(pos:Vector3, size:number, parent:OctreeInstance?, dir:number?) : OctreeInstance
     assertVector3(pos, "pos")
     assertNumber(size, "size")
@@ -140,6 +151,9 @@ function Octree.new(pos:Vector3, size:number, parent:OctreeInstance?, dir:number
 	return self
 end
 
+--[=[
+    divides self into 8 smaller octrees
+]=]
 function Octree.divide(self:OctreeInstance)
 	for i=1, 8 do
 		local xdir = directions[i][1]
@@ -150,6 +164,9 @@ function Octree.divide(self:OctreeInstance)
 	end
 end
 
+--[=[
+    FOR TESTING PURPOSES ONLY
+]=]
 function Octree._query(self:OctreeInstance, pos:Vector3, accumulatedDivisions:number)
     assertVector3(pos, "pos")
     assertNumber(accumulatedDivisions, "accumulatedDivisions")
@@ -168,6 +185,9 @@ function Octree._query(self:OctreeInstance, pos:Vector3, accumulatedDivisions:nu
 	self.children[dir]:query(pos, accumulatedDivisions)
 end
 
+--[=[
+    inserts an object to the octree
+]=]
 function Octree.insert<T>(self:OctreeInstance, object:T, pos:Vector3) : boolean
     assertVector3(pos, "pos")
 
@@ -199,6 +219,11 @@ function Octree.insert<T>(self:OctreeInstance, object:T, pos:Vector3) : boolean
     return true
 end
 
+--[=[
+    returns a table containing all
+    objects that stands in the
+    given sphere
+]=]
 function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, targetTable:{any}) : {any}
     assertVector3(pos, "pos")
     assertNumber(radius, "radius")
@@ -218,6 +243,10 @@ function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, tar
     end
 end
 
+--[=[
+    returns a table containing all
+    objects that stands in the given region (box)
+]=]
 function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any}) : {any}
     assertNumber(typeof(targetTable)=="table","target table must be a table")
     assertVector3(size, "size")
@@ -248,7 +277,14 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
     return targetTable
 end
 
-function Octree.GetNearest<T>(self:OctreeInstance, pos:Vector3, bestObj:T, bestDist:number)
+
+--[=[
+    returns the nearest object
+    to the given position
+]=]
+function Octree.GetNearest(self:OctreeInstance, pos:Vector3, bestObj:any, bestDist:number) : (any, number)
+    assertVector3(pos, "pos")
+
     bestDist = bestDist or math.huge
 
     if (self.Pos-pos).Magnitude > bestDist + self.bodyDiagonal then
@@ -274,6 +310,13 @@ function Octree.GetNearest<T>(self:OctreeInstance, pos:Vector3, bestObj:T, bestD
     return bestObj, bestDist
 end
 
+
+--[=[
+    removes an object;
+    if all childrens of an octree
+    becomes empty after this process,
+    empty octrees get removed
+]=]
 function Octree.Remove<A>(self:OctreeInstance, object:A)
     local node = self.nodeMap[object]
     if node then
@@ -295,6 +338,10 @@ function Octree.Remove<A>(self:OctreeInstance, object:A)
     end
 end
 
+--[=[
+    updates position of the given
+    object, calls Remove
+]=]
 function Octree.Update<A>(self:OctreeInstance, object:A, newPos:Vector3)
     assertVector3(newPos, "newPos")
     self:Remove(object)
@@ -304,6 +351,33 @@ function Octree.Update<A>(self:OctreeInstance, object:A, newPos:Vector3)
     end
 end
 
+--[=[
+    returns descendant count
+]=]
+function Octree.GetDescendantCount(self:OctreeInstance)
+    return self.descendantCount
+end
+
+--[=[
+    returns object count
+]=]
+function Octree.GetObjectCount(self:OctreeInstance)
+    return self.objectCount
+end
+
+--[=[
+    returns true if the given
+    object exists in the octree instance
+    across all nodes
+]=]
+function Octree.Contains(self:OctreeInstance, object:any)
+    return self.nodeMap[object] ~= nil
+end
+
+--[=[
+    destroys all childrens of
+    an octree
+]=]
 function Octree.DestroyChildren(self:OctreeInstance)
     if #self.children > 0 then
         for i,child in self.children do
@@ -313,6 +387,12 @@ function Octree.DestroyChildren(self:OctreeInstance)
     end
 end
 
+
+--[=[
+    destroys an octree,
+    also destroys visualizer parts
+    if exist
+]=]
 function Octree.Destroy(self:OctreeInstance)
     self:DestroyChildren()
 
