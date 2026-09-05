@@ -1,0 +1,30 @@
+{
+  "name": "OctTree",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src"
+      }
+    },
+
+    "ServerScriptService": {
+      "Server": {
+        "$path": "server"
+      }
+    },
+
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true
+      }
+      
+    },
+    "SoundService": {
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    }
+  }
+}
