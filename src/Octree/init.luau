@@ -1,7 +1,7 @@
 --!strict
 
 local function assertVector3(vec3:Vector3, name:string)
-    assert(typeof(vec3) == "Vector3",name.." agrument must be a valid Vector3 instance")
+    assert(typeof(vec3) == "Vector3",name.." argument must be a valid Vector3 instance")
 end
 local function assertNumber(n:number, name:string)
     assert(typeof(n)=="number", name.." argument must be a valid number")
@@ -10,6 +10,7 @@ end
 
 local config = require(script.config)
 local DEFAULT_CAPACITY = config.Module.DEFAULT_CAPACITY
+local MIN_SIZE = config.Module.MIN_SIZE_STUDS
 local EPSILON = config.Module.EPSILON
 
 local directions = {
@@ -79,6 +80,11 @@ end
     at given position with given size
 ]=]
 local function debugVis(pos, size)
+
+    if not config.Debug.DEBUG_ON then
+        return nil
+    end
+
 	local p = Instance.new("Part", workspace)
 	p.Anchored = true
 	p.Position = pos
@@ -90,10 +96,7 @@ local function debugVis(pos, size)
     p.CanTouch = false
 	p.Transparency = 0.9
     p.BrickColor = BrickColor.random()
-    if config.Debug.DEBUG_ON then
-        return p
-    end
-    return nil
+    return p
 end
 
 
@@ -200,7 +203,7 @@ function Octree.insert<T>(self:OctreeInstance, object:T, pos:Vector3) : boolean
         return true
     end
 
-    if self.objectCount == self.capacity then
+    if self.objectCount >= self.capacity and self.nSize >= MIN_SIZE then
         self:divide()
         for earlierObject, objPos in self.objects do
             local dir = getDirection(self.Pos, objPos)
@@ -248,7 +251,7 @@ end
     objects that stands in the given region (box)
 ]=]
 function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any}) : {any}
-    assertNumber(typeof(targetTable)=="table","target table must be a table")
+    assert(typeof(targetTable)=="table","target table must be a table")
     assertVector3(size, "size")
     assertVector3(pos, "pos")
 
@@ -267,9 +270,9 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
         end
     else
         for obj, p in self.objects do
-            if math.abs(p.X - pos.X) < size.X/2
-            and math.abs(p.Y - pos.Y) < size.Y/2
-            and math.abs(p.Z - pos.Z) < size.Z/2 then continue end
+            if math.abs(p.X - pos.X) > size.X/2
+            or math.abs(p.Y - pos.Y) > size.Y/2
+            or math.abs(p.Z - pos.Z) > size.Z/2 then continue end
             table.insert(targetTable, obj)
         end
     end
