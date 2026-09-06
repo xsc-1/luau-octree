@@ -79,7 +79,7 @@ end
     creates a visualizer block
     at given position with given size
 ]=]
-local function debugVis(pos, size)
+local function debugVis(pos, size) : Part?
 
     if not config.Debug.DEBUG_ON then
         return nil
@@ -112,13 +112,13 @@ export type OctreeInstance = typeof(setmetatable({}::{
     objectCount:number,
 	children:{[number]:OctreeInstance},
     nodeMap:{[any]:OctreeInstance},
-    parent:OctreeInstance,
-    dir:number,
+    parent:OctreeInstance?,
+    dir:number?,
     descendantCount:number,
 
     bodyDiagonal:number,
 
-    debugVisual:Part
+    debugVisual:Part?
 },Octree))
 
 --[=[
@@ -185,7 +185,7 @@ function Octree._query(self:OctreeInstance, pos:Vector3, accumulatedDivisions:nu
 	accumulatedDivisions += 1
 	if accumulatedDivisions >= 4 then return end
 	
-	self.children[dir]:query(pos, accumulatedDivisions)
+	self.children[dir]:_query(pos, accumulatedDivisions)
 end
 
 --[=[
@@ -227,7 +227,7 @@ end
     objects that stands in the
     given sphere
 ]=]
-function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, targetTable:{any}) : {any}
+function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, targetTable:{any})
     assertVector3(pos, "pos")
     assertNumber(radius, "radius")
 
@@ -235,7 +235,7 @@ function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, tar
     if dist > self.bodyDiagonal + radius then return end
 
     if #self.children > 0 then
-        for _, child in self.children do
+        for _, child:any in self.children do
             child:GetInRadius(pos, radius, targetTable)
         end
     else
@@ -250,7 +250,7 @@ end
     returns a table containing all
     objects that stands in the given region (box)
 ]=]
-function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any}) : {any}
+function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any})
     assert(typeof(targetTable)=="table","target table must be a table")
     assertVector3(size, "size")
     assertVector3(pos, "pos")
@@ -265,7 +265,7 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
     then return end
 
     if #self.children > 0 then
-        for _,child in self.children do
+        for _,child:any in self.children do
             child:GetInRegion(pos, size, targetTable)
         end
     else
@@ -332,7 +332,7 @@ function Octree.Remove<A>(self:OctreeInstance, object:A)
         while current do
             current.descendantCount -= 1
             
-            if current.descendantCount == 0 and node.parent.objectCount == 0 and #current.children > 0 then
+            if current.descendantCount == 0 and current.objectCount == 0 and #current.children > 0 then
                 current:DestroyChildren()
             end
 
@@ -374,7 +374,7 @@ end
     across all nodes
 ]=]
 function Octree.Contains(self:OctreeInstance, object:any)
-    return self.nodeMap[object] ~= nil
+    return self.nodeMap[object] ~= nil :: any
 end
 
 --[=[
@@ -383,7 +383,7 @@ end
 ]=]
 function Octree.DestroyChildren(self:OctreeInstance)
     if #self.children > 0 then
-        for i,child in self.children do
+        for i,child:any in self.children do
             child:Destroy()
         end
         table.clear(self.children)
@@ -406,8 +406,8 @@ function Octree.Destroy(self:OctreeInstance)
         self.debugVisual:Destroy()
     end
     table.clear(self.objects)
-    table.clear(self)
-    setmetatable(self, nil)
+    table.clear(self::any)
+    setmetatable(self::any, nil)
 end
 
 return Octree
