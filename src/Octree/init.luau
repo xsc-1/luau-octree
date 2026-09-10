@@ -7,6 +7,9 @@ local function assertNumber(n:number, name:string)
     assert(typeof(n)=="number", name.." argument must be a valid number")
 end
 
+local huge = math.huge
+local abs = math.abs
+
 
 local config = require(script.config)
 local DEFAULT_CAPACITY = config.Module.DEFAULT_CAPACITY
@@ -58,9 +61,9 @@ local function isInBounds(center:Vector3, pos:Vector3, nSize:number) : boolean
 	local halfSize = (nSize/2) + EPSILON
 
 	return not(
-    math.abs(distX) > halfSize
-	or math.abs(distY) > halfSize
-	or math.abs(distZ) > halfSize
+    abs(distX) > halfSize
+	or abs(distY) > halfSize
+	or abs(distZ) > halfSize
     )
 end
 
@@ -158,11 +161,12 @@ end
     divides self into 8 smaller octrees
 ]=]
 function Octree.divide(self:OctreeInstance)
+    local selfnSize = self.nSize
 	for i=1, 8 do
 		local xdir = directions[i][1]
 		local ydir = directions[i][2]
 		local zdir = directions[i][3]
-		local child = Octree.new(self.Pos + Vector3.new(xdir*self.nSize/4, ydir*self.nSize/4, zdir*self.nSize/4), self.nSize/2, self, i)
+		local child = Octree.new(self.Pos + Vector3.new(xdir*selfnSize/4, ydir*selfnSize/4, zdir*selfnSize/4), selfnSize/2, self, i)
 		self.children[i] = child
 	end
 end
@@ -255,13 +259,16 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
     assertVector3(size, "size")
     assertVector3(pos, "pos")
 
-    local distX = math.abs(self.Pos.X - pos.X)
-    local distY = math.abs(self.Pos.Y - pos.Y)
-    local distZ = math.abs(self.Pos.Z - pos.Z)
+    local selfPos = self.Pos
+    local selfSize = self.Size
 
-    if distX > (self.Size.X + size.X)/2
-    or distY > (self.Size.Y + size.Y)/2
-    or distZ > (self.Size.Z + size.Z)/2
+    local distX = abs(selfPos.X - pos.X)
+    local distY = abs(selfPos.Y - pos.Y)
+    local distZ = abs(selfPos.Z - pos.Z)
+
+    if distX > (selfSize.X + size.X)/2
+    or distY > (selfSize.Y + size.Y)/2
+    or distZ > (selfSize.Z + size.Z)/2
     then return end
 
     if #self.children > 0 then
@@ -270,9 +277,9 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
         end
     else
         for obj, p in self.objects do
-            if math.abs(p.X - pos.X) > size.X/2
-            or math.abs(p.Y - pos.Y) > size.Y/2
-            or math.abs(p.Z - pos.Z) > size.Z/2 then continue end
+            if abs(p.X - pos.X) > size.X/2
+            or abs(p.Y - pos.Y) > size.Y/2
+            or abs(p.Z - pos.Z) > size.Z/2 then continue end
             table.insert(targetTable, obj)
         end
     end
@@ -288,14 +295,16 @@ end
 function Octree.GetNearest(self:OctreeInstance, pos:Vector3, bestObj:any, bestDist:number) : (any, number)
     assertVector3(pos, "pos")
 
-    bestDist = bestDist or math.huge
+    bestDist = bestDist or huge
 
-    if (self.Pos-pos).Magnitude > bestDist + self.bodyDiagonal then
+    local selfPos = self.Pos
+
+    if (selfPos-pos).Magnitude > bestDist + self.bodyDiagonal then
         return bestObj, bestDist
     end
 
     if #self.children > 0 then
-        local bestDir = getDirection(self.Pos, pos)
+        local bestDir = getDirection(selfPos, pos)
         for i=0, 7 do
             local currentDir = ((i + bestDir-1)%8 )+ 1
 
