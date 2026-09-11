@@ -54,6 +54,7 @@ local directionMap = {
     returns true if given position is in
     bounds of the box with given center and size
 ]=]
+@native
 local function isInBounds(center:Vector3, pos:Vector3, nSize:number) : boolean
     local distX = pos.X - center.X
 	local distY = pos.Y - center.Y
@@ -71,6 +72,7 @@ end
     returns the direction which
     given position is in
 ]=]
+@native
 local function getDirection(center:Vector3, pos:Vector3) : number
 	return directionMap
 	[(pos.X - center.X) >= 0 and 1 or -1]
@@ -231,6 +233,7 @@ end
     objects that stands in the
     given sphere
 ]=]
+@native
 function Octree.GetInRadius(self:OctreeInstance, pos:Vector3, radius:number, targetTable:{any})
     assertVector3(pos, "pos")
     assertNumber(radius, "radius")
@@ -254,6 +257,7 @@ end
     returns a table containing all
     objects that stands in the given region (box)
 ]=]
+@native
 function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targetTable:{any})
     assert(typeof(targetTable)=="table","target table must be a table")
     assertVector3(size, "size")
@@ -284,7 +288,7 @@ function Octree.GetInRegion(self:OctreeInstance, pos:Vector3, size:Vector3, targ
         end
     end
 
-    return targetTable
+    return targetTable :: any
 end
 
 
@@ -292,6 +296,7 @@ end
     returns the nearest object
     to the given position
 ]=]
+@native
 function Octree.GetNearest(self:OctreeInstance, pos:Vector3, bestObj:any, bestDist:number) : (any, number)
     assertVector3(pos, "pos")
 
